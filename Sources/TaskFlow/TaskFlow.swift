@@ -1,13 +1,30 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 
+// TaskFlow: A lightweight Swift library for managing asynchronous task flows with dependencies.
+// https://github.com/liulcd/taskflow-swift
+//
+// Author: liulcd
+//
+// This file defines the core TaskFlow class and supporting types for orchestrating dependent asynchronous tasks.
+//
+// Usage:
+//   - Define tasks and their dependencies.
+//   - Use TaskFlow to queue and execute tasks in order, handling errors and completion.
+//
+// See README.md for more details and examples.
+
 import Foundation
 
+/// An actor that manages the queue and execution state of TaskFlow tasks.
 private actor TaskFlowActor {
+    /// 2D array of task groups, each group can be executed in parallel.
     private(set) var tasks: [[TaskFlow]] = []
-    
+
+    /// Track all queued task IDs to prevent duplicates.
     private var taskIds: [AnyHashable] = []
-    
+
+    /// Queue a set of tasks, resolving dependencies and removing duplicates.
     func queue(tasks: [TaskFlow]) {
         let allTasks = getAllTasks(tasks)
         allTasks.forEach { elements in
@@ -26,6 +43,7 @@ private actor TaskFlowActor {
         }
     }
     
+    /// Recursively resolve all dependencies for the given tasks.
     private func getAllTasks(_ tasks: [TaskFlow]) -> [[TaskFlow]] {
         let tasks = removeDuplicateTasks(tasks)
         var allTasks: [[TaskFlow]] = []
@@ -49,6 +67,7 @@ private actor TaskFlowActor {
         return allTasks
     }
     
+    /// Remove duplicate tasks by their IDs.
     private func removeDuplicateTasks(_ tasks: [TaskFlow]) -> [TaskFlow] {
         var taskIds: [AnyHashable] = []
         var results: [TaskFlow] = []
@@ -63,6 +82,7 @@ private actor TaskFlowActor {
         return results
     }
     
+    /// Remove a task by its ID from the queue.
     func remove(_ id: AnyHashable) {
         for index in 0 ..< tasks.count {
             tasks[index].removeAll { element in
@@ -77,25 +97,39 @@ private actor TaskFlowActor {
         }
     }
     
+    /// Clear all tasks and IDs from the queue.
     func clear() {
         tasks.removeAll()
         taskIds.removeAll()
     }
 }
 
+/// The handler type for a TaskFlow. Call `finish(nil)` on success, or `finish(error)` on failure.
 public typealias TaskFlowHandler = (_ finish: (_ error: NSError?) -> Void) -> Void
 
+/// TaskFlow: Represents a single asynchronous task with optional dependencies.
+/// Supports chaining, error handling, and repeat count.
 public class TaskFlow: NSObject, @unchecked Sendable {
     private let actor = TaskFlowActor()
     
+    /// Unique identifier for the task.
     let id: AnyHashable
-    
+
+    /// The closure to execute for this task.
     let flowHandler: TaskFlowHandler?
-    
+
+    /// Optional dependencies. These tasks must complete before this one starts.
     let depends: [TaskFlow]?
-    
+
+    /// Number of times to repeat this task before finishing.
     private var count: UInt = 1
-    
+
+    /// Initialize a TaskFlow.
+    /// - Parameters:
+    ///   - flowHandler: The closure to execute for this task.
+    ///   - id: Unique identifier (default: random UUID string).
+    ///   - count: Number of times to repeat (default: 1).
+    ///   - depends: Array of dependent TaskFlow objects.
     public init(_ flowHandler: TaskFlowHandler? = nil, id: AnyHashable = UUID.init().uuidString, count: UInt = 1, depends: [TaskFlow]? = nil) {
         self.flowHandler = flowHandler
         self.id = id
@@ -103,8 +137,10 @@ public class TaskFlow: NSObject, @unchecked Sendable {
         self.depends = depends
     }
     
+    /// Indicates if the task is currently running.
     private var isFlowing: Bool = false
-    
+
+    /// Indicates if the task has finished.
     private var isFinished: Bool = false {
         didSet {
             if isFinished == true {
@@ -113,18 +149,22 @@ public class TaskFlow: NSObject, @unchecked Sendable {
         }
     }
     
+    /// Helper class to wrap AnyHashable for Sendable conformance.
     private class SendableHash: NSObject, @unchecked Sendable {
         let value: AnyHashable
-        
+
         init(value: AnyHashable) {
             self.value = value
         }
     }
     
+    /// Optional error handler for task failures.
     private var failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)?
 }
 
+// MARK: - TaskFlow Execution
 extension TaskFlow {
+    /// Queue a set of tasks for execution, including this task if not already queued.
     func queue(tasks: [TaskFlow]) async {
         if self.flowHandler != nil {
             if await self.actor.tasks.count == 0 {
@@ -134,6 +174,7 @@ extension TaskFlow {
         await self.actor.queue(tasks: tasks)
     }
     
+    /// Start executing the queued tasks, with optional error handler.
     func flow(_ failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)? = nil) async {
         if self.flowHandler != nil {
             if await self.actor.tasks.count == 0 {
@@ -150,6 +191,7 @@ extension TaskFlow {
         }
     }
     
+    /// Internal: Execute the current group of tasks in parallel.
     private func flow(_ tasks: [[TaskFlow]], current: [TaskFlow]) {
         current.forEach { element in
             if element.count > 0 && element.flowHandler != nil {
@@ -187,6 +229,7 @@ extension TaskFlow {
         }
     }
     
+    /// Internal: Proceed to the next group of tasks if all in the current group are finished.
     private func flowNext(_ tasks: [[TaskFlow]], current: [TaskFlow]) {
         var finished = true
         current.forEach { element in
@@ -202,6 +245,7 @@ extension TaskFlow {
         }
     }
     
+    /// Internal: Get the next group of tasks to execute.
     private func getNextTasks(_ tasks: [[TaskFlow]], current: [TaskFlow]? = nil) -> [TaskFlow]? {
         var next: [TaskFlow]?
         if tasks.count > 0 {
@@ -225,26 +269,32 @@ extension TaskFlow {
         return next
     }
     
+    /// Remove a task by its ID asynchronously.
     func remove(_ id: AnyHashable) async {
         let hash = SendableHash(value: id)
         await self.actor.remove(hash.value)
     }
     
+    /// Clear all tasks asynchronously.
     func clear() async {
         await self.actor.clear()
     }
 }
 
+// MARK: - Main TaskFlow Singleton
 extension TaskFlow {
+    /// Shared main TaskFlow instance.
     static let main = TaskFlow()
 }
 
+// MARK: - NSObject Extension for TaskFlow Association
 public
 extension NSObject {
     private struct TaskFlowAssociatedKey {
         nonisolated(unsafe) static var taskFlow: Void?
     }
     
+    /// Associated TaskFlow instance for any NSObject.
     var taskFlow: TaskFlow {
         get {
             return synchronized {
@@ -264,8 +314,10 @@ extension NSObject {
     }
 }
 
+// MARK: - NSObject Synchronization Helper
 internal extension NSObject {
     @discardableResult
+    /// Thread-safe execution of a closure using objc_sync.
     func synchronized<T>(_ closure: () -> T) -> T {
         objc_sync_enter(self)
         defer { objc_sync_exit(self) }
