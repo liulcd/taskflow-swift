@@ -16,8 +16,25 @@
 
 import Foundation
 
+internal class SendableValue: NSObject, @unchecked Sendable {
+    let value: Any?
+    
+    init(value: Any?) {
+        self.value = value
+    }
+}
+
+/// Helper class to wrap AnyHashable for Sendable conformance.
+internal class SendableHash: NSObject, @unchecked Sendable {
+    let value: AnyHashable
+
+    init(value: AnyHashable) {
+        self.value = value
+    }
+}
+
 /// An actor that manages the queue and execution state of TaskFlow tasks.
-private actor TaskFlowActor {
+private actor TaskFlowActor: @unchecked Sendable {
     /// 2D array of task groups, each group can be executed in parallel.
     private(set) var tasks: [[TaskFlow]] = []
 
@@ -102,6 +119,16 @@ private actor TaskFlowActor {
         tasks.removeAll()
         taskIds.removeAll()
     }
+    
+    private var properties: [AnyHashable: Any] = [:]
+    
+    func setProperty(_ property: Any?, key: AnyHashable) {
+        properties[key] = properties
+    }
+    
+    func getProperty(_ key: AnyHashable) -> SendableValue? {
+        return SendableValue(value: properties[key])
+    }
 }
 
 /// The handler type for a TaskFlow. Call `finish(nil)` on success, or `finish(error)` on failure.
@@ -148,22 +175,13 @@ public class TaskFlow: NSObject, @unchecked Sendable {
             }
         }
     }
-    
-    /// Helper class to wrap AnyHashable for Sendable conformance.
-    private class SendableHash: NSObject, @unchecked Sendable {
-        let value: AnyHashable
 
-        init(value: AnyHashable) {
-            self.value = value
-        }
-    }
-    
     /// Optional error handler for task failures.
     private var failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)?
 }
 
 // MARK: - TaskFlow Execution
-extension TaskFlow {
+public extension TaskFlow {
      /// Queue tasks for execution. Set `clear` to true to remove previous tasks. Dependencies are handled automatically.
     func queue(_ tasks: [TaskFlow], clear: Bool = false) async {
         if clear == true {
@@ -212,18 +230,14 @@ extension TaskFlow {
                         }
                         element.count -= 1
                         if element.count == 0 {
-                            Task {
-                                await self.actor.remove(element.id)
-                            }
+                            self.remove(element.id)
                         }
                         element.isFinished = true
                         self.flowNext(tasks, current: current)
                     }
                 }
             } else if element.count == 0 {
-                Task {
-                    await self.actor.remove(element.id)
-                }
+                self.remove(element.id)
                 flowNext(tasks, current: current)
             } else {
                 element.isFinished = true
@@ -278,9 +292,27 @@ extension TaskFlow {
         await self.actor.remove(hash.value)
     }
     
+    func remove(_ id: AnyHashable) {
+        let hash = SendableHash(value: id)
+        Task {
+            await self.actor.remove(hash.value)
+        }
+    }
+    
     /// Clear all tasks asynchronously.
     func clear() async {
         await self.actor.clear()
+    }
+    
+    func getProperty(_ key: AnyHashable) async -> Any? {
+        let hash = SendableHash(value: key)
+        return await self.actor.getProperty(hash.value)?.value
+    }
+    
+    func setProperty(_ property: Any?, key: AnyHashable) async {
+        let hash = SendableHash(value: key)
+        let property = SendableValue(value: property)
+        await self.actor.setProperty(property.value, key: hash.value)
     }
 }
 
@@ -291,8 +323,7 @@ extension TaskFlow {
 }
 
 // MARK: - NSObject Extension for TaskFlow Association
-public
-extension NSObject {
+public extension NSObject {
     private struct TaskFlowAssociatedKey {
         nonisolated(unsafe) static var taskFlow: Void?
     }
