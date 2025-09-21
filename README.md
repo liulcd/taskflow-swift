@@ -29,16 +29,19 @@ TaskFlow provides an observer extension that allows you to react to value change
 import TaskFlow
 
 let flow = TaskFlow()
+let observer = NSObject()
 
 // Add an observer for a keyPath
-let observer = NSObject()
 let observerTask = await flow.addObserverTask(observer, keyPath: "username") { newValue, oldValue in
-	print("username changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
+    print("username changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
 }
 
 // Update the observed value
 await flow.updateObservedValue("username", value: "Alice")
 await flow.updateObservedValue("username", value: "Bob")
+
+// Remove the observer task when no longer needed
+await flow.removeObserverTask(observerTask)
 ```
 
 ### 1. Define Tasks

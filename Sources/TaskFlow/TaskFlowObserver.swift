@@ -52,12 +52,16 @@ public extension TaskFlow {
         return task
     }
     
+    /// Remove a specific observer task asynchronously.
+    /// - Parameter task: The observer TaskFlow to remove.
     func removeObserverTask(_ task: TaskFlow) async {
         let observerTasks = await getObserverTasks()
         let observerTask = observerTasks[task.getObserverKeyPathKey()]
         await observerTask?.remove(task.id)
     }
     
+    /// Remove a specific observer task (convenience sync version).
+    /// - Parameter task: The observer TaskFlow to remove.
     func removeObserverTask(_ task: TaskFlow) {
         Task {
             await removeObserverTask(task)
@@ -78,6 +82,8 @@ public extension TaskFlow {
     }
     
     /// Internal: Call the observer's update closure with the current and previous values.
+    /// Internal: Call the observer's update closure with the current and previous values.
+    /// - Parameter updated: The closure to call with new and old values.
     private func handleObserverUpdated(_ updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void) {
         guard let updated = SendableValue(value: updated).value as? (_ value: Any?, _ oldValue: Any?) -> Void else {
             return
@@ -115,6 +121,7 @@ public extension TaskFlow {
         return "\(self.id)_observerOldValue"
     }
     
+    /// Internal: Key for storing the keyPath associated with an observer task.
     private func getObserverKeyPathKey() -> String {
         return "\(self.id)_observerKeyPath"
     }
