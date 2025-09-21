@@ -49,7 +49,7 @@ let taskC = TaskFlow({ finish in
 
 ```swift
 Task {
-	await taskC.queue(tasks: [taskA, taskB, taskC])
+	await taskC.queue([taskA, taskB, taskC])
 	await taskC.flow { failedTask, error in
 		print("Task \(failedTask.id) failed: \(error)")
 	}
@@ -65,6 +65,10 @@ Task {
 }
 ```
 
+> **Note:**
+> - One-shot tasks (tasks with no repeat count) are automatically removed from the queue after successful completion.
+> - Tasks with a repeat count are also automatically removed when their execution count is exhausted.
+
 ## License
 
-MIT
+See [LICENSE](LICENSE) for details.

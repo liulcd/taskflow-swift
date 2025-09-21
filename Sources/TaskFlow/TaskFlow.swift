@@ -164,8 +164,11 @@ public class TaskFlow: NSObject, @unchecked Sendable {
 
 // MARK: - TaskFlow Execution
 extension TaskFlow {
-    /// Queue a set of tasks for execution, including this task if not already queued.
-    func queue(tasks: [TaskFlow]) async {
+     /// Queue tasks for execution. Set `clear` to true to remove previous tasks. Dependencies are handled automatically.
+    func queue(_ tasks: [TaskFlow], clear: Bool = false) async {
+        if clear == true {
+            await self.actor.clear()
+        }
         if self.flowHandler != nil {
             if await self.actor.tasks.count == 0 {
                 await self.actor.queue(tasks: [self])
