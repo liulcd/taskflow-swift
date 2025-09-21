@@ -1,4 +1,4 @@
-# taskflow-swift
+# TaskFlow
 
 TaskFlow is a lightweight Swift library for managing asynchronous task flows with dependencies. It allows you to define tasks, set dependencies, and execute them in the correct order, supporting error handling and repeatable tasks.
 
