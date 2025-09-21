@@ -18,7 +18,28 @@ Add the following to your `Package.swift`:
 .package(url: "https://github.com/liulcd/taskflow-swift.git", from: "1.0.0")
 ```
 
-## Usage
+
+## Observer Extension
+
+TaskFlow provides an observer extension that allows you to react to value changes asynchronously. You can register observer tasks for specific key paths and get notified when values are updated.
+
+### Example: Observing Value Changes
+
+```swift
+import TaskFlow
+
+let flow = TaskFlow()
+
+// Add an observer for a keyPath
+let observer = NSObject()
+let observerTask = await flow.addObserverTask(observer, keyPath: "username") { newValue, oldValue in
+	print("username changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
+}
+
+// Update the observed value
+await flow.updateObservedValue("username", value: "Alice")
+await flow.updateObservedValue("username", value: "Bob")
+```
 
 ### 1. Define Tasks
 
@@ -68,6 +89,7 @@ Task {
 > **Note:**
 > - One-shot tasks (tasks with no repeat count) are automatically removed from the queue after successful completion.
 > - Tasks with a repeat count are also automatically removed when their execution count is exhausted.
+
 
 ## License
 

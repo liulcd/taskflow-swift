@@ -120,6 +120,7 @@ private actor TaskFlowActor: @unchecked Sendable {
         taskIds.removeAll()
     }
     
+    /// Storage for arbitrary key-value properties associated with the task flow.
     private var properties: [AnyHashable: Any] = [:]
     
     func setProperty(_ property: Any?, key: AnyHashable) {

@@ -1,9 +1,28 @@
 // The Swift Programming Language
 // https://docs.swift.org/swift-book
 
+// TaskFlowObserver.swift
+//
+// Extension for TaskFlow to support observer pattern for value changes.
+// Allows registering observer tasks that react to property changes asynchronously.
+//
+// Author: liulcd
+//
+// Usage:
+//   - Add observer tasks to TaskFlow instances for keyPath changes.
+//   - Notify observers with value updates.
+//   - See README.md for usage examples.
+
 import Foundation
 
 public extension TaskFlow {
+    /// Add an observer task for a given keyPath. The observer will be notified asynchronously when the value changes.
+    /// - Parameters:
+    ///   - observer: The observing object (used for lifecycle management).
+    ///   - keyPath: The keyPath to observe.
+    ///   - updated: Closure called with new and old values when the value changes.
+    ///   - initial: If true, the observer is notified immediately with the current value.
+    /// - Returns: The created observer TaskFlow.
     func addObserverTask(_ observer: AnyObject, keyPath: String, updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void, initial: Bool = false) async -> TaskFlow {
         var observerTasks = await getObserverTasks()
         var observerTask = observerTasks[keyPath]
@@ -32,6 +51,10 @@ public extension TaskFlow {
         return task
     }
     
+    /// Notify all observer tasks for the given keyPath of a value update.
+    /// - Parameters:
+    ///   - keyPath: The keyPath whose value changed.
+    ///   - value: The new value to set and notify observers about.
     func updateObservedValue(_ keyPath: String, value: Any?) async {
         let key = getObserverValueKey()
         let oldValue = await getProperty(key)
@@ -41,6 +64,7 @@ public extension TaskFlow {
         await observerTask.flow()
     }
     
+    /// Internal: Call the observer's update closure with the current and previous values.
     private func handleObserverUpdated(_ updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void) {
         guard let updated = SendableValue(value: updated).value as? (_ value: Any?, _ oldValue: Any?) -> Void else {
             return
@@ -52,6 +76,7 @@ public extension TaskFlow {
         }
     }
     
+    /// Internal: Get or create the dictionary of observer tasks for this TaskFlow.
     private func getObserverTasks() async -> [String: TaskFlow] {
         let key = getObserverTasksKey()
         guard let tasks = await getProperty(key) as? [String: TaskFlow] else {
@@ -62,14 +87,17 @@ public extension TaskFlow {
         return tasks
     }
         
+    /// Internal: Key for storing observer tasks in properties.
     private func getObserverTasksKey() -> String {
         return "\(self.id)_observerTasks"
     }
     
+    /// Internal: Key for storing the current observed value.
     private func getObserverValueKey() -> String {
         return "\(self.id)_observerValue"
     }
     
+    /// Internal: Key for storing the previous observed value.
     private func getObserverOldValueKey() -> String {
         return "\(self.id)_observerOldValue"
     }
