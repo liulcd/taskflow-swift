@@ -44,11 +44,24 @@ public extension TaskFlow {
             self.handleObserverUpdated(updated)
             finish(nil)
         }, id: id, count: UInt.max)
+        await task.setProperty(keyPath, key: task.getObserverKeyPathKey())
         await observerTask?.queue([task])
         if initial == true {
             handleObserverUpdated(updated)
         }
         return task
+    }
+    
+    func removeObserverTask(_ task: TaskFlow) async {
+        let observerTasks = await getObserverTasks()
+        let observerTask = observerTasks[task.getObserverKeyPathKey()]
+        await observerTask?.remove(task.id)
+    }
+    
+    func removeObserverTask(_ task: TaskFlow) {
+        Task {
+            await removeObserverTask(task)
+        }
     }
     
     /// Notify all observer tasks for the given keyPath of a value update.
@@ -100,6 +113,10 @@ public extension TaskFlow {
     /// Internal: Key for storing the previous observed value.
     private func getObserverOldValueKey() -> String {
         return "\(self.id)_observerOldValue"
+    }
+    
+    private func getObserverKeyPathKey() -> String {
+        return "\(self.id)_observerKeyPath"
     }
 }
 
