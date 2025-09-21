@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "TaskFlow"
-  spec.version      = "0.0.1"
+  spec.version      = "1.0.0"
   spec.summary      = "A lightweight Swift library for managing asynchronous task flows with dependencies."
 
   # This description is used to generate tags and improve search results.
@@ -94,7 +94,7 @@ DESC
 
   spec.source_files  = "Sources/TaskFlow/**/*.swift"
   spec.swift_version = '5.0'
-  spec.platform     = :ios, "11.0"
+  
   spec.ios.deployment_target = "11.0"
   spec.osx.deployment_target = "10.13"
   spec.watchos.deployment_target = "4.0"
