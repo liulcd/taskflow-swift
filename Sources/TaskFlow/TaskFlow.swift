@@ -179,6 +179,20 @@ public class TaskFlow: NSObject, @unchecked Sendable {
 
     /// Optional error handler for task failures.
     private var failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)?
+    
+    private var _finish: ((_ error: NSError?) -> Void)?
+    private(set) var finish: ((_ error: NSError?) -> Void)? {
+        get {
+            return synchronized {
+                return _finish
+            }
+        }
+        set {
+            synchronized {
+                _finish = newValue
+            }
+        }
+    }
 }
 
 // MARK: - TaskFlow Execution
@@ -221,9 +235,12 @@ public extension TaskFlow {
                     return
                 }
                 element.isFinished = false
-                element.flowHandler?{ [weak self] error in
+                element.finish = { [weak self] error in
                     guard let self = self else { return }
                     self.synchronized {
+                        if element.isFinished == true {
+                            return
+                        }
                         if let error = error {
                             element.isFlowing = false
                             self.failHandler?(element, error)
@@ -236,6 +253,9 @@ public extension TaskFlow {
                         element.isFinished = true
                         self.flowNext(tasks, current: current)
                     }
+                }
+                if let finish = element.finish {
+                    element.flowHandler?(finish)
                 }
             } else if element.count == 0 {
                 self.remove(element.id)
