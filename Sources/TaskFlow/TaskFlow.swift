@@ -180,19 +180,7 @@ public class TaskFlow: NSObject, @unchecked Sendable {
     /// Optional error handler for task failures.
     private var failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)?
     
-    private var _finish: ((_ error: NSError?) -> Void)?
-    private(set) var finish: ((_ error: NSError?) -> Void)? {
-        get {
-            return synchronized {
-                return _finish
-            }
-        }
-        set {
-            synchronized {
-                _finish = newValue
-            }
-        }
-    }
+    private var finishHandler: ((_ error: NSError?) -> Void)?
 }
 
 // MARK: - TaskFlow Execution
@@ -235,7 +223,7 @@ public extension TaskFlow {
                     return
                 }
                 element.isFinished = false
-                element.finish = { [weak self] error in
+                element.finishHandler = { [weak self] error in
                     guard let self = self else { return }
                     self.synchronized {
                         if element.isFinished == true {
@@ -254,7 +242,7 @@ public extension TaskFlow {
                         self.flowNext(tasks, current: current)
                     }
                 }
-                if let finish = element.finish {
+                if let finish = element.finishHandler {
                     element.flowHandler?(finish)
                 }
             } else if element.count == 0 {
@@ -305,6 +293,16 @@ public extension TaskFlow {
             }
         }
         return next
+    }
+    
+    func finish(_ error: NSError? = nil) async {
+        finishHandler?(error)
+    }
+    
+    func finish(_ error: NSError? = nil) {
+        Task {
+            finishHandler?(error)
+        }
     }
     
     /// Remove a task by its ID asynchronously.
