@@ -15,23 +15,7 @@
 // See README.md for more details and examples.
 
 import Foundation
-
-internal class SendableValue: NSObject, @unchecked Sendable {
-    let value: Any?
-    
-    init(value: Any?) {
-        self.value = value
-    }
-}
-
-/// Helper class to wrap AnyHashable for Sendable conformance.
-internal class SendableHash: NSObject, @unchecked Sendable {
-    let value: AnyHashable
-
-    init(value: AnyHashable) {
-        self.value = value
-    }
-}
+import SendableValue
 
 /// An actor that manages the queue and execution state of TaskFlow tasks.
 private actor TaskFlowActor: @unchecked Sendable {
@@ -128,7 +112,7 @@ private actor TaskFlowActor: @unchecked Sendable {
     }
     
     func getProperty(_ key: AnyHashable) -> SendableValue? {
-        return SendableValue(value: properties[key])
+        return SendableValue(properties[key])
     }
 }
 
@@ -307,12 +291,12 @@ public extension TaskFlow {
     
     /// Remove a task by its ID asynchronously.
     func remove(_ id: AnyHashable) async {
-        let hash = SendableHash(value: id)
+        let hash = SendableAnyHashableValue(id)
         await self.actor.remove(hash.value)
     }
     
     func remove(_ id: AnyHashable) {
-        let hash = SendableHash(value: id)
+        let hash = SendableAnyHashableValue(id)
         Task {
             await self.actor.remove(hash.value)
         }
@@ -324,13 +308,13 @@ public extension TaskFlow {
     }
     
     func getProperty(_ key: AnyHashable) async -> Any? {
-        let hash = SendableHash(value: key)
+        let hash = SendableAnyHashableValue(key)
         return await self.actor.getProperty(hash.value)?.value
     }
     
     func setProperty(_ property: Any?, key: AnyHashable) async {
-        let hash = SendableHash(value: key)
-        let property = SendableValue(value: property)
+        let hash = SendableAnyHashableValue(key)
+        let property = SendableValue(property)
         await self.actor.setProperty(property.value, key: hash.value)
     }
 }

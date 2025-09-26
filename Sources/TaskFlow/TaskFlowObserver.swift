@@ -14,6 +14,7 @@
 //   - See README.md for usage examples.
 
 import Foundation
+import SendableValue
 
 public extension TaskFlow {
     /// Add an observer task for a given keyPath. The observer will be notified asynchronously when the value changes.
@@ -85,9 +86,7 @@ public extension TaskFlow {
     /// Internal: Call the observer's update closure with the current and previous values.
     /// - Parameter updated: The closure to call with new and old values.
     private func handleObserverUpdated(_ updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void) {
-        guard let updated = SendableValue(value: updated).value as? (_ value: Any?, _ oldValue: Any?) -> Void else {
-            return
-        }
+        let updated = SendableUpdatedHandlerValue(updated).value
         Task {
             let value = await getProperty(getObserverValueKey())
             let oldValue = await getProperty(getObserverValueKey())
