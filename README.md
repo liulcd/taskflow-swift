@@ -9,6 +9,7 @@ TaskFlow is a lightweight Swift library for managing asynchronous task flows wit
 - Automatic execution order based on dependencies
 - Error handling and repeat count support
 - Thread-safe and actor-based implementation
+- Thread-safe key-value property storage for each task
 
 ## Installation
 
@@ -21,7 +22,7 @@ Add the following to your `Package.swift`:
 
 ## Observer Extension
 
-TaskFlow provides an observer extension that allows you to react to value changes asynchronously. You can register observer tasks for specific key paths and get notified when values are updated.
+TaskFlow provides an observer extension that allows you to react to value changes asynchronously or synchronously. You can register observer tasks for specific key paths and get notified when values are updated. Observer state is managed via thread-safe properties on each task instance.
 
 ### Example: Observing Value Changes
 
@@ -31,20 +32,25 @@ import TaskFlow
 let flow = TaskFlow()
 let observer = NSObject()
 
-// Add an observer for a keyPath
-let observerTask = await flow.addObserverTask(observer, keyPath: "username") { newValue, oldValue in
-    print("username changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
+// Add an observer for a keyPath (async)
+let observerTask = flow.addObserverTask(observer, keyPath: "username") { newValue, oldValue in
+	print("username changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
 }
 
-// Update the observed value
+// Update the observed value (async)
 await flow.updateObservedValue("username", value: "Alice")
 await flow.updateObservedValue("username", value: "Bob")
+
+// Or update synchronously (will dispatch async internally)
+flow.updateObservedValue("username", value: "Charlie")
 
 // Remove the observer task when no longer needed
 await flow.removeObserverTask(observerTask)
 ```
+- Observer extension supports both async and sync value change notifications
 
-### 1. Define Tasks
+
+### 1. Define Tasks and Use Properties
 
 ```swift
 import TaskFlow
@@ -68,8 +74,34 @@ let taskC = TaskFlow({ finish in
 	finish(nil)
 }, depends: [taskA, taskB]) // taskC depends on taskA and taskB
 ```
+import TaskFlow
 
-### 2. Queue and Execute Tasks
+let task = TaskFlow { finish in
+	// Set a custom property
+	task.properties["userId"] = 123
+	// Access property later
+	print("userId:", task.properties["userId"] ?? "nil")
+	finish(nil)
+}
+
+
+### 2. Use finishHandler and finish
+
+You can use the `finishHandler` property to define a custom completion callback for a task, and call `finish()` to mark the task as complete:
+
+```swift
+let task = TaskFlow { finish in
+	// ... do work ...
+	finish(nil) // or finish(error)
+}
+task.finishHandler = { error in
+	if let error = error {
+		print("Task failed: \(error)")
+	} else {
+		print("Task finished successfully")
+	}
+}
+```
 
 ```swift
 Task {

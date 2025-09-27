@@ -17,7 +17,7 @@ Pod::Spec.new do |spec|
 
   spec.name         = "TaskFlow"
   spec.version      = "1.0.0"
-  spec.summary      = "A lightweight Swift library for managing asynchronous task flows with dependencies."
+  spec.summary      = "A lightweight Swift library for managing asynchronous task flows with dependencies, error handling, and property observation (async & sync)."
 
   # This description is used to generate tags and improve search results.
   #   * Think: What does it do? Why did you write it? What is the focus?
@@ -25,7 +25,7 @@ Pod::Spec.new do |spec|
   #   * Write the description between the DESC delimiters below.
   #   * Finally, don't worry about the indent, CocoaPods strips it!
   spec.description  = <<-DESC
-TaskFlow is a lightweight Swift library for orchestrating asynchronous task flows with dependency management, error handling, and observer support. Define tasks, set dependencies, and execute them in the correct order. Includes actor-based concurrency and property observation extensions.
+TaskFlow is a lightweight Swift library for orchestrating asynchronous task flows with dependency management, error handling, and observer support. Define tasks, set dependencies, and execute them in the correct order. Includes actor-based concurrency, thread-safe key-value property storage for each task, custom finish handlers, and property observation extensions supporting both async and sync notifications.
 DESC
 
   spec.homepage     = "https://github.com/liulcd/taskflow-swift"

@@ -17,6 +17,7 @@ import Foundation
 import SendableValue
 
 public extension TaskFlow {
+    /// Synchronously notify all observer tasks for the given keyPath of a value update.
     /// Add an observer task for a given keyPath. The observer will be notified asynchronously when the value changes.
     /// - Parameters:
     ///   - observer: The observing object (used for lifecycle management).

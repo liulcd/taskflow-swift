@@ -119,6 +119,9 @@ public typealias TaskFlowHandler = (_ finish: (_ error: NSError?) -> Void) -> Vo
 /// TaskFlow: Represents a single asynchronous task with optional dependencies.
 /// Supports chaining, error handling, and repeat count.
 public class TaskFlow: NSObject, @unchecked Sendable {
+    /// Finish the current task, optionally with an error. Can be called from within the flowHandler.
+    /// The callback to be called when the task is finished.
+    /// Thread-safe storage for arbitrary key-value properties associated with the task flow.
     private let actor = TaskFlowActor()
     
     /// Unique identifier for the task.
@@ -158,7 +161,7 @@ public class TaskFlow: NSObject, @unchecked Sendable {
         }
     }
 
-    /// Optional error handler for task failures.
+    /// Optional complete handler for task completion or failures.
     private var completeHandler: ((_ task: TaskFlow, _ error: Error?) -> Void)?
     
     private var finishHandler: ((_ error: NSError?) -> Void)?
@@ -166,6 +169,7 @@ public class TaskFlow: NSObject, @unchecked Sendable {
     
     /// Storage for arbitrary key-value properties associated with the task flow.
     private var _properties: [AnyHashable: Any] = [:]
+    /// Storage for arbitrary key-value properties associated with the task flow.
     var properties: [AnyHashable: Any] {
         get {
             return synchronized {
@@ -182,6 +186,7 @@ public class TaskFlow: NSObject, @unchecked Sendable {
 
 // MARK: - TaskFlow Execution
 public extension TaskFlow {
+    /// Asynchronously finish the current task, optionally with an error.
      /// Queue tasks for execution. Set `clear` to true to remove previous tasks. Dependencies are handled automatically.
     func queue(_ tasks: [TaskFlow], clear: Bool = false) async {
         if clear == true {
@@ -195,6 +200,7 @@ public extension TaskFlow {
         await self.actor.queue(tasks: tasks)
     }
     
+    /// Synchronously finish the current task, optionally with an error.
     /// Queue tasks for execution. Set `clear` to true to remove previous tasks. Dependencies are handled automatically.
     func queue(_ tasks: [TaskFlow], clear: Bool = false) {
         Task {
