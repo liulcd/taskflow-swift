@@ -24,8 +24,8 @@ public extension TaskFlow {
     ///   - updated: Closure called with new and old values when the value changes.
     ///   - initial: If true, the observer is notified immediately with the current value.
     /// - Returns: The created observer TaskFlow.
-    func addObserverTask(_ observer: AnyObject, keyPath: String, updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void, initial: Bool = false) async -> TaskFlow {
-        var observerTasks = await getObserverTasks()
+    func addObserverTask(_ observer: AnyObject, keyPath: String, updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void, initial: Bool = false) -> TaskFlow {
+        var observerTasks = getObserverTasks()
         var observerTask = observerTasks[keyPath]
         synchronized {
             if observerTask == nil {
@@ -33,7 +33,7 @@ public extension TaskFlow {
                 observerTasks[keyPath] = observerTask
             }
         }
-        await setProperty(observerTasks, key: keyPath)
+        properties[observerTasksKey] = observerTasks
         let id = UUID().uuidString
         let task = TaskFlow({ [weak self, weak observer] finish in
             guard let _ = observer else {
@@ -45,10 +45,18 @@ public extension TaskFlow {
             self.handleObserverUpdated(updated)
             finish(nil)
         }, id: id, count: UInt.max)
-        await task.setProperty(keyPath, key: task.getObserverKeyPathKey())
-        await observerTask?.queue([task])
-        if initial == true {
-            handleObserverUpdated(updated)
+        task.properties[task.observerKeyPathKey] = keyPath
+        let updated = SendableUpdatedHandlerValue(updated)
+        let tasks = SendableValue([task])
+        let observer = SendableValue(observerTask)
+        Task {
+            guard let tasks = tasks.value as? [TaskFlow], let observerTask = observer.value as? TaskFlow else {
+                return
+            }
+            await observerTask.queue(tasks)
+            if initial == true {
+                handleObserverUpdated(updated.value)
+            }
         }
         return task
     }
@@ -56,8 +64,8 @@ public extension TaskFlow {
     /// Remove a specific observer task asynchronously.
     /// - Parameter task: The observer TaskFlow to remove.
     func removeObserverTask(_ task: TaskFlow) async {
-        let observerTasks = await getObserverTasks()
-        let observerTask = observerTasks[task.getObserverKeyPathKey()]
+        let observerTasks = getObserverTasks()
+        let observerTask = observerTasks[task.observerKeyPathKey]
         await observerTask?.remove(task.id)
     }
     
@@ -74,55 +82,65 @@ public extension TaskFlow {
     ///   - keyPath: The keyPath whose value changed.
     ///   - value: The new value to set and notify observers about.
     func updateObservedValue(_ keyPath: String, value: Any?) async {
-        let key = getObserverValueKey()
-        let oldValue = await getProperty(key)
-        await setProperty(oldValue, key: getObserverOldValueKey())
-        await setProperty(value, key: key)
-        guard let observerTask = await getObserverTasks()[keyPath] else { return }
+        let oldValue = properties[observerValueKey]
+        properties[observerOldValueKey] = oldValue
+        properties[observerValueKey] = value
+        guard let observerTask = getObserverTasks()[keyPath] else { return }
         await observerTask.flow()
+    }
+    
+    /// Notify all observer tasks for the given keyPath of a value update.
+    /// - Parameters:
+    ///   - keyPath: The keyPath whose value changed.
+    ///   - value: The new value to set and notify observers about.
+    func updateObservedValue(_ keyPath: String, value: Any?) {
+        let value = SendableValue(value)
+        Task {
+            await updateObservedValue(keyPath, value: value.value)
+        }
     }
     
     /// Internal: Call the observer's update closure with the current and previous values.
     /// Internal: Call the observer's update closure with the current and previous values.
     /// - Parameter updated: The closure to call with new and old values.
-    private func handleObserverUpdated(_ updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void) {
-        let updated = SendableUpdatedHandlerValue(updated).value
-        Task {
-            let value = await getProperty(getObserverValueKey())
-            let oldValue = await getProperty(getObserverValueKey())
-            updated(value, oldValue)
-        }
+    private func handleObserverUpdated(_ updated: (_ value: Any?, _ oldValue: Any?) -> Void) {
+        let value = properties[observerValueKey]
+        let oldValue = properties[observerOldValueKey]
+        updated(value, oldValue)
     }
     
     /// Internal: Get or create the dictionary of observer tasks for this TaskFlow.
-    private func getObserverTasks() async -> [String: TaskFlow] {
-        let key = getObserverTasksKey()
-        guard let tasks = await getProperty(key) as? [String: TaskFlow] else {
+    private func getObserverTasks() -> [String: TaskFlow] {
+        guard let tasks = properties[observerTasksKey] as? [String: TaskFlow] else {
             let tasks: [String: TaskFlow] = [:]
-            await setProperty(tasks, key: key)
+            properties[observerTasksKey] = tasks
             return tasks
         }
         return tasks
     }
         
-    /// Internal: Key for storing observer tasks in properties.
-    private func getObserverTasksKey() -> String {
-        return "\(self.id)_observerTasks"
+    private var observerTasksKey: String {
+        get {
+            return "\(self.id)_observerTasks"
+        }
     }
     
-    /// Internal: Key for storing the current observed value.
-    private func getObserverValueKey() -> String {
-        return "\(self.id)_observerValue"
+    private var observerValueKey: String {
+        get {
+            return "\(self.id)_observerValue"
+        }
     }
     
-    /// Internal: Key for storing the previous observed value.
-    private func getObserverOldValueKey() -> String {
-        return "\(self.id)_observerOldValue"
+    private var observerOldValueKey: String {
+        get {
+            return "\(self.id)_observerOldValue"
+        }
     }
     
-    /// Internal: Key for storing the keyPath associated with an observer task.
-    private func getObserverKeyPathKey() -> String {
-        return "\(self.id)_observerKeyPath"
+    private var observerKeyPathKey: String {
+        get {
+            return "\(self.id)_observerKeyPath"
+        }
     }
 }
 

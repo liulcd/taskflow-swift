@@ -17,6 +17,14 @@
 import Foundation
 import SendableValue
 
+internal extension SendableValue {
+    var completeHandlerValue: ((_ task: TaskFlow, _ error: Error?) -> Void)? {
+        get {
+            return self.value as? (_ task: TaskFlow, _ error: Error?) -> Void
+        }
+    }
+}
+
 /// An actor that manages the queue and execution state of TaskFlow tasks.
 private actor TaskFlowActor: @unchecked Sendable {
     /// 2D array of task groups, each group can be executed in parallel.
@@ -103,17 +111,6 @@ private actor TaskFlowActor: @unchecked Sendable {
         tasks.removeAll()
         taskIds.removeAll()
     }
-    
-    /// Storage for arbitrary key-value properties associated with the task flow.
-    private var properties: [AnyHashable: Any] = [:]
-    
-    func setProperty(_ property: Any?, key: AnyHashable) {
-        properties[key] = properties
-    }
-    
-    func getProperty(_ key: AnyHashable) -> SendableValue? {
-        return SendableValue(properties[key])
-    }
 }
 
 /// The handler type for a TaskFlow. Call `finish(nil)` on success, or `finish(error)` on failure.
@@ -162,9 +159,25 @@ public class TaskFlow: NSObject, @unchecked Sendable {
     }
 
     /// Optional error handler for task failures.
-    private var failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)?
+    private var completeHandler: ((_ task: TaskFlow, _ error: Error?) -> Void)?
     
     private var finishHandler: ((_ error: NSError?) -> Void)?
+    
+    
+    /// Storage for arbitrary key-value properties associated with the task flow.
+    private var _properties: [AnyHashable: Any] = [:]
+    var properties: [AnyHashable: Any] {
+        get {
+            return synchronized {
+                return _properties
+            }
+        }
+        set {
+            synchronized {
+                _properties = newValue
+            }
+        }
+    }
 }
 
 // MARK: - TaskFlow Execution
@@ -182,8 +195,15 @@ public extension TaskFlow {
         await self.actor.queue(tasks: tasks)
     }
     
+    /// Queue tasks for execution. Set `clear` to true to remove previous tasks. Dependencies are handled automatically.
+    func queue(_ tasks: [TaskFlow], clear: Bool = false) {
+        Task {
+            await queue(tasks, clear: clear)
+        }
+    }
+    
     /// Start executing the queued tasks, with optional error handler.
-    func flow(_ failHandler: ((_ task: TaskFlow, _ error: Error) -> Void)? = nil) async {
+    func flow(_ completeHandler: ((_ task: TaskFlow, _ error: Error?) -> Void)? = nil) async {
         if self.flowHandler != nil {
             if await self.actor.tasks.count == 0 {
                 await self.actor.queue(tasks: [self])
@@ -194,8 +214,16 @@ public extension TaskFlow {
             return
         }
         self.synchronized {
-            self.failHandler = failHandler
+            self.completeHandler = completeHandler
             self.flow(tasks, current: next)
+        }
+    }
+    
+    /// Start executing the queued tasks, with optional error handler.
+    func flow(_ completeHandler: ((_ task: TaskFlow, _ error: Error?) -> Void)? = nil) {
+        let fail = SendableValue(completeHandler)
+        Task {
+            await flow(fail.completeHandlerValue)
         }
     }
     
@@ -215,7 +243,7 @@ public extension TaskFlow {
                         }
                         if let error = error {
                             element.isFlowing = false
-                            self.failHandler?(element, error)
+                            self.completeHandler?(element, error)
                             return
                         }
                         element.count -= 1
@@ -249,6 +277,7 @@ public extension TaskFlow {
         }
         if finished {
             guard let next = self.getNextTasks(tasks, current: current) else {
+                completeHandler?(self, nil)
                 return
             }
             self.flow(tasks, current: next)
@@ -269,7 +298,7 @@ public extension TaskFlow {
             guard let index = tasks.firstIndex(of: current) else {
                 return next
             }
-            if tasks.count > index {
+            if tasks.count > index + 1 {
                 next = tasks[index + 1]
                 if next?.count ?? 0 == 0  {
                     return getNextTasks(tasks, current: next)
@@ -305,17 +334,6 @@ public extension TaskFlow {
     /// Clear all tasks asynchronously.
     func clear() async {
         await self.actor.clear()
-    }
-    
-    func getProperty(_ key: AnyHashable) async -> Any? {
-        let key = SendableAnyHashableValue(key)
-        return await self.actor.getProperty(key.value)?.value
-    }
-    
-    func setProperty(_ property: Any?, key: AnyHashable) async {
-        let key = SendableAnyHashableValue(key)
-        let property = SendableValue(property)
-        await self.actor.setProperty(property.value, key: key.value)
     }
 }
 
