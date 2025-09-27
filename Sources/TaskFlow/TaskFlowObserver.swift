@@ -120,24 +120,28 @@ public extension TaskFlow {
         return tasks
     }
         
+    /// The property key used to store the observer tasks dictionary.
     private var observerTasksKey: String {
         get {
             return "\(self.id)_observerTasks"
         }
     }
     
+    /// The property key used to store the current observed value.
     private var observerValueKey: String {
         get {
             return "\(self.id)_observerValue"
         }
     }
     
+    /// The property key used to store the previous observed value.
     private var observerOldValueKey: String {
         get {
             return "\(self.id)_observerOldValue"
         }
     }
     
+    /// The property key used to store the keyPath associated with an observer task.
     private var observerKeyPathKey: String {
         get {
             return "\(self.id)_observerKeyPath"
