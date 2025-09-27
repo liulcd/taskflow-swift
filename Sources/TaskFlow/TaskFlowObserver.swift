@@ -25,6 +25,7 @@ public extension TaskFlow {
     ///   - updated: Closure called with new and old values when the value changes.
     ///   - initial: If true, the observer is notified immediately with the current value.
     /// - Returns: The created observer TaskFlow.
+    @discardableResult
     func addObserverTask(_ observer: AnyObject, keyPath: String, updated: @escaping (_ value: Any?, _ oldValue: Any?) -> Void, initial: Bool = false) -> TaskFlow {
         var observerTasks = getObserverTasks()
         var observerTask = observerTasks[keyPath]
