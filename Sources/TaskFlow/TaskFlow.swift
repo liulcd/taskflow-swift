@@ -291,14 +291,14 @@ public extension TaskFlow {
     
     /// Remove a task by its ID asynchronously.
     func remove(_ id: AnyHashable) async {
-        let hash = SendableAnyHashableValue(id)
-        await self.actor.remove(hash.value)
+        let id = SendableAnyHashableValue(id)
+        await self.actor.remove(id.value)
     }
     
     func remove(_ id: AnyHashable) {
-        let hash = SendableAnyHashableValue(id)
+        let id = SendableAnyHashableValue(id)
         Task {
-            await self.actor.remove(hash.value)
+            await self.actor.remove(id.value)
         }
     }
     
@@ -308,14 +308,14 @@ public extension TaskFlow {
     }
     
     func getProperty(_ key: AnyHashable) async -> Any? {
-        let hash = SendableAnyHashableValue(key)
-        return await self.actor.getProperty(hash.value)?.value
+        let key = SendableAnyHashableValue(key)
+        return await self.actor.getProperty(key.value)?.value
     }
     
     func setProperty(_ property: Any?, key: AnyHashable) async {
-        let hash = SendableAnyHashableValue(key)
+        let key = SendableAnyHashableValue(key)
         let property = SendableValue(property)
-        await self.actor.setProperty(property.value, key: hash.value)
+        await self.actor.setProperty(property.value, key: key.value)
     }
 }
 
